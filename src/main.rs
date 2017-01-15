@@ -13,6 +13,13 @@ use tokio_service::Service;
 struct Redirector;
 
 impl Redirector {
+	fn redirect(&self, host: &str, path: &str) -> future::Ok<Response, io::Error> {
+		let mut resp = Response::new();
+		resp.status_code(301, "Moved Permanently");
+		resp.header("Location", &format!("https://{}{}", host, path));
+		future::ok(resp)
+	}
+
 	fn error(&self) -> future::Ok<Response, io::Error> {
 		let mut resp = Response::new();
 		resp.status_code(400, "Bad Request");
