@@ -13,6 +13,13 @@ use tokio_service::Service;
 struct Redirector;
 
 impl Redirector {
+	fn redirect(&self, host: &str, path: &str) -> future::Ok<Response, io::Error> {
+		let mut resp = Response::new();
+		resp.status_code(301, "Moved Permanently");
+		resp.header("Location", &format!("https://{}{}", host, path));
+		future::ok(resp)
+	}
+
 	fn error(&self) -> future::Ok<Response, io::Error> {
 		let mut resp = Response::new();
 		resp.status_code(400, "Bad Request");
@@ -35,26 +42,12 @@ impl Service for Redirector {
 		if !path.starts_with("/") {
 			return self.error();
 		}
-		// find host
-		let mut host = None;
-		for item in request.headers(){
-			if item.0.to_lowercase() == "host" {
-				if let Ok(x) = std::str::from_utf8(item.1){
-					host = Some(x);
-				} else { 
-					return self.error();
-				}
-				break;
-			}
-		}
-		if host == None {
-			return self.error();
-		}
 
-		let mut resp = Response::new();
-		resp.status_code(301, "Moved Permanently");
-		resp.header("Location", &format!("https://{}{}", host.unwrap(), path));
-		future::ok(resp)
+		request.headers()
+			.find(|item| item.0.to_lowercase() == "host")
+			.and_then(|item| std::str::from_utf8(item.1).ok())
+			.map(|host| self.redirect(host, path))
+			.unwrap_or_else(|| self.error())
 	}
 }
 
